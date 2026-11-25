@@ -40,6 +40,7 @@ h1{font-size:clamp(30px,4.6vw,48px);line-height:1.1;margin:6px 0 18px;text-wrap:
 .f small{color:var(--mut);font-size:13px}
 input{font:inherit;font-size:17px;width:100%;min-height:46px;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);direction:ltr;text-align:right}
 input[type=text].ar{direction:rtl}
+input:disabled,button:disabled{opacity:.45}
 input:focus,button:focus-visible,summary:focus-visible{outline:3px solid var(--em);outline-offset:2px}
 .res{background:var(--pink);border-color:var(--pink);color:var(--ink)}
 .res .lbl{font-weight:500;margin:0}
@@ -102,6 +103,19 @@ footer a{color:#a9cbf2}
     </div>
     <div id="in-n" hidden>
       <div class="f"><label for="target">صافي المرتب المتفق عليه (شهري)</label><input id="target" type="number" inputmode="decimal" min="0" step="any"><small>نحسب الإجمالي الذي يحقق هذا الصافي بعد التأمينات والضريبة وصندوق الشهداء</small></div>
+      <fieldset class="bear"><legend>تقسيم الإجمالي</legend>
+        <div class="row2">
+          <div class="f"><label for="pB">الأجر الأساسي % من الإجمالي</label><input id="pB" type="number" inputmode="decimal" min="0" max="100" step="any"></div>
+        </div>
+        <p class="note" style="margin:0 0 6px">والباقي يتقسم بالنسب دي:</p>
+        <div class="row2">
+          <div class="f"><label for="pA">بدلات %</label><input id="pA" type="number" inputmode="decimal" min="0" step="any"></div>
+          <div class="f"><label for="pI">حوافز %</label><input id="pI" type="number" inputmode="decimal" min="0" step="any"></div>
+          <div class="f"><label for="pR">مكافآت %</label><input id="pR" type="number" inputmode="decimal" min="0" step="any"></div>
+        </div>
+        <label class="ck"><input type="checkbox" id="insB" checked><span>التأمين على الأجر الأساسي فقط<br><small class="note">أجر الاشتراك = الأساسي في حدود الحد الأدنى والأقصى</small></span></label>
+      </fieldset>
+    </div>
     </div>
     <div class="f"><label for="ins">أجر الاشتراك التأميني</label><input id="ins" type="number" inputmode="decimal" min="0" step="any" placeholder="تلقائي"><small>اتركه فارغًا ليُحسب من الإجمالي في حدود <span id="lim"></span>. اكتب الأجر المؤمن عليه فعلًا إن كان مختلفًا</small>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button type="button" class="btn ghost" id="ins-min" style="min-height:40px;padding:6px 14px">التأمين بالحد الأدنى</button><button type="button" class="btn ghost" id="ins-auto" style="min-height:40px;padding:6px 14px">تلقائي على الإجمالي</button></div></div>
@@ -119,6 +133,7 @@ footer a{color:#a9cbf2}
       <li><b style="background:var(--em)"></b>الصافي</li><li><b style="background:var(--si)"></b>التأمينات</li><li><b style="background:var(--tax)"></b>الضريبة</li><li><b style="background:var(--mt)"></b>صندوق الشهداء</li><li><b style="background:var(--ot)"></b>استقطاعات أخرى</li>
     </ul>
     <table style="margin-top:14px"><tbody id="brk"></tbody></table>
+    <div id="split-w" hidden><h3 style="margin:18px 0 6px;font-size:18px">تقسيم الإجمالي</h3><table><tbody id="split"></tbody></table></div>
   </section>
 </div>
 
@@ -215,7 +230,7 @@ const r2=x=>Math.round(x*100)/100;
 const fm=x=>(Math.round(x*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const f0=x=>x===Infinity?'∞':x.toLocaleString('en-US');
 const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>0?v:0};
-const ids=['basic','allow','target','ins','exo','od','ename','ejob','emonth'];
+const ids=['basic','allow','target','ins','exo','od','ename','ejob','emonth','pB','pA','pI','pR'];
 const sMap={'s-ex':'exempt','s-min':'insMin','s-max':'insMax','s-emp':'empRate','s-er':'erRate','s-mt':'mart'};
 let mode='g';
 
@@ -239,13 +254,16 @@ function calc(g,o){
   const net=r2(g-si-tax-mart-o.od);
   return{g,ins,si,er,taxable,at,tax,mart,od:o.od,net};
 }
-function solve(target,o){
-  const oo={...o,od:0};let lo=0,hi=Math.max(target*3,target+200000);
-  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(calc(m,oo).net<target)lo=m;else hi=m}
+function solve(target,o,insFn){
+  const oo={...o,od:0},cc=g=>calc(g,insFn?{...oo,ins:insFn(g)}:oo);let lo=0,hi=Math.max(target*3,target+200000);
+  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(cc(m).net<target)lo=m;else hi=m}
   let g=Math.ceil(hi*100)/100;
-  while(calc(g,oo).net<target)g=r2(g+.01);
-  return calc(g,oo);
+  while(cc(g).net<target)g=r2(g+.01);
+  return cc(g);
 }
+const pv=(id,d)=>{const v=parseFloat($(id).value);return isFinite(v)&&v>=0?v:d};
+function splitG(g){const b=r2(g*Math.min(100,pv('pB',50))/100),rest=r2(g-b);let a=pv('pA',50),i=pv('pI',30),r=pv('pR',20),t=a+i+r;if(t<=0){a=1;i=0;r=0;t=1}
+  const A=r2(rest*a/t),I=r2(rest*i/t);return{b,A,I,R:r2(rest-A-I)}}
 function computeG(A,o,bSI,bTax,gUp){
   let c,borne=0,warn='';
   if(!(bSI||bTax))c=calc(A,o);
@@ -260,14 +278,15 @@ function computeG(A,o,bSI,bTax,gUp){
   }
   return{c,borne,warn};
 }
-function save(){try{const d={mode,S,bSI:$('bSI').checked,bTax:$('bTax').checked,gUp:$('gUp').checked};ids.forEach(i=>d[i]=$(i).value);localStorage.setItem('mfc-salary',JSON.stringify(d))}catch(e){}}
+function save(){try{const d={mode,S,insB:$('insB').checked,bSI:$('bSI').checked,bTax:$('bTax').checked,gUp:$('gUp').checked};ids.forEach(i=>d[i]=$(i).value);localStorage.setItem('mfc-salary',JSON.stringify(d))}catch(e){}}
 function load(){
   let d=null;try{d=JSON.parse(localStorage.getItem('mfc-salary'))}catch(e){}
   if(!d)d={basic:'12000',allow:'6000',target:'15000'};
+  if(d.pB==null)Object.assign(d,{pB:'50',pA:'50',pI:'30',pR:'20'});
   ids.forEach(i=>{if(d[i]!=null)$(i).value=d[i]});
   if(d.S)S={...DEF,...d.S};
   if(d.mode)mode=d.mode;
-  ['bSI','bTax','gUp'].forEach(i=>{if(typeof d[i]==='boolean')$(i).checked=d[i]});
+  ['bSI','bTax','gUp','insB'].forEach(i=>{if(typeof d[i]==='boolean')$(i).checked=d[i]});
 }
 function render(){
   $('t-g').setAttribute('aria-selected',mode==='g');$('t-n').setAttribute('aria-selected',mode==='n');
@@ -276,6 +295,7 @@ function render(){
   if(mode==='b'){renderBatch();save();return}
   $('in-g').hidden=mode!=='g';$('in-n').hidden=mode!=='n';$('f-od').hidden=mode!=='g';
   $('lim').textContent='من '+f0(S.insMin)+' إلى '+f0(S.insMax);
+  const lockIns=mode==='n'&&$('insB').checked;['ins','ins-min','ins-auto'].forEach(i=>$(i).disabled=lockIns);
   const o={ins:num('ins'),exo:num('exo'),od:mode==='g'?num('od'):0};
   let c,warn='';
   const bSI=mode==='g'&&$('bSI').checked,bTax=mode==='g'&&$('bTax').checked,bear=bSI||bTax,gUp=$('gUp').checked;
@@ -288,7 +308,8 @@ function render(){
     $('r-big').innerHTML=fm(c.net)+' <span>جنيه</span>';
     $('r-sub').textContent=bear?'الجهة تتحمل '+[bSI?'التأمينات':'',bTax?'الضريبة':''].filter(Boolean).join(' و')+' — تكلفتها الشهرية '+fm(c.g+borne+c.er)+' جنيه':'من إجمالي '+fm(c.g)+' جنيه';
   }else{
-    const t=num('target');c=solve(t,o);
+    const t=num('target');
+    c=$('insB').checked?solve(t,o,g=>Math.min(Math.max(r2(g*Math.min(100,pv('pB',50))/100),S.insMin),S.insMax)):solve(t,o);
     $('r-lbl').textContent='الإجمالي المطلوب شهريًا';
     $('r-big').innerHTML=fm(c.g)+' <span>جنيه</span>';
     $('r-sub').textContent='ليحصل الموظف على صافي '+fm(c.net)+' جنيه';
@@ -296,6 +317,8 @@ function render(){
   }
   const tg=bTax?' — تتحملها الجهة':'',sg=bSI?' — تتحملها الجهة':'';
   if(c.g>0&&c.ins<Math.min(c.g,S.insMax)-0.5)warn=(warn?warn+' ':'')+'تنبيه: أجر الاشتراك أقل من الأجر الفعلي. قانون التأمينات 148 لسنة 2019 يُلزم بالتأمين على الأجر الفعلي، والفرق ممكن يتطالب بيه مع غرامات عند التفتيش.';
+  $('split-w').hidden=mode!=='n'||!(c.g>0);
+  if(mode==='n'&&c.g>0){const q=splitG(c.g);$('split').innerHTML=[['الأجر الأساسي',q.b],['البدلات',q.A],['الحوافز',q.I],['المكافآت',q.R]].map(([l,v])=>`<tr><td>${l}</td><td class="n">${fm(v)}</td></tr>`).join('')+`<tr class="tot"><td>الإجمالي</td><td class="n">${fm(c.g)}</td></tr>`;window._q=q}else window._q=null;
   $('r-warn').hidden=!warn;$('r-warn').textContent=warn;
   const parts=[[c.net,'var(--em)'],[c.si,'var(--si)'],[c.tax,'var(--tax)'],[c.mart,'var(--mt)'],[c.od,'var(--ot)']];
   const den=parts.reduce((x,[v])=>x+Math.max(0,v),0);
@@ -305,7 +328,7 @@ function render(){
   if(bear&&gUp)rows.push(['المرتب المتفق عليه',A,1],['تعلية تتحملها الجهة',r2(c.g-A),1]);
   rows.push([bear&&gUp?'الإجمالي بعد التعلية':'إجمالي المرتب',c.g],['أجر الاشتراك التأميني',c.ins,1],['تأمينات الموظف ('+S.empRate+'%)'+sg,-c.si],['الوعاء الخاضع الشهري',c.taxable,1],['ضريبة كسب العمل (فعلي '+eff+'%)'+tg,-c.tax],['صندوق الشهداء ('+S.mart+'%)'+tg,-c.mart]);
   if(mode==='g')rows.push(['استقطاعات أخرى',-c.od]);
-  const split=c.g>0&&c.ins<c.g-0.5;
+  const split=mode!=='n'&&c.g>0&&c.ins<c.g-0.5;
   if(split){const i=rows.findIndex(r=>r[0]==='أجر الاشتراك التأميني');rows.splice(i+1,0,['منه أجر أساسي مؤمن عليه',c.ins,1],['منه بدلات وحوافز ومكافآت',r2(c.g-c.ins),1])}
   if(borne)rows.push(['يتحملها صاحب العمل عن الموظف',borne]);
   $('brk').innerHTML=rows.map(([l,v,info])=>`<tr${info?' style="color:var(--mut)"':''}><td>${l}</td><td class="n">${v<0?'('+fm(-v)+')':fm(Math.abs(v))}</td></tr>`).join('')+`<tr class="tot"><td>الصافي للموظف</td><td class="n">${fm(c.net)}</td></tr>`;
@@ -325,7 +348,9 @@ function slipText(){
   if($('ejob').value)L.push('الوظيفة: '+$('ejob').value);
   const b=window._b||{},bs=b.bSI?' (تتحملها الجهة)':'',bt=b.bTax?' (تتحملها الجهة)':'';
   if((b.bSI||b.bTax)&&b.gUp)L.push('','المرتب المتفق عليه: '+fm(b.A),'الإجمالي بعد التعلية: '+fm(c.g));else L.push('','إجمالي المرتب: '+fm(c.g));
-  if(c.ins<c.g-0.5)L.push('منه أجر أساسي مؤمن عليه: '+fm(c.ins),'منه بدلات وحوافز ومكافآت: '+fm(r2(c.g-c.ins)));
+  const q=window._q;
+  if(q)L.push('الأجر الأساسي: '+fm(q.b),'البدلات: '+fm(q.A),'الحوافز: '+fm(q.I),'المكافآت: '+fm(q.R));
+  else if(c.ins<c.g-0.5)L.push('منه أجر أساسي مؤمن عليه: '+fm(c.ins),'منه بدلات وحوافز ومكافآت: '+fm(r2(c.g-c.ins)));
   L.push('تأمينات اجتماعية: '+fm(c.si)+bs,'ضريبة كسب العمل: '+fm(c.tax)+bt,'صندوق الشهداء: '+fm(c.mart)+bt);
   if(b.borne)L.push('يتحملها صاحب العمل: '+fm(b.borne));
   if(c.od)L.push('استقطاعات أخرى: '+fm(c.od));
@@ -392,7 +417,7 @@ $('cpy').addEventListener('click',async()=>{
 load();
 Object.entries(sMap).forEach(([id,k])=>{$(id).value=S[k];$(id).addEventListener('input',()=>{const v=parseFloat($(id).value);if(isFinite(v)&&v>=0){S[k]=v;render()}})});
 ids.forEach(i=>$(i).addEventListener('input',render));
-['bSI','bTax','gUp'].forEach(i=>$(i).addEventListener('change',render));
+['bSI','bTax','gUp','insB'].forEach(i=>$(i).addEventListener('change',render));
 $('t-g').addEventListener('click',()=>{mode='g';render()});
 $('t-n').addEventListener('click',()=>{mode='n';render()});
 $('t-b').addEventListener('click',()=>{mode='b';render()});
