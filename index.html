@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>حاسبة المرتبات والضريبة</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1F3A68">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="حاسبة المرتبات">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=Schibsted+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: هادئ ومهني، أداة محاسب تثق في أرقامها
+   IDEA: ورقة المطبوعات الرسمية للمكتب — هيدر كحلي بالشعار، خانات مرتبة
+   PICTURE: النتيجة الكبيرة + شريط يقسّم الإجمالي إلى صافي/تأمينات/ضريبة
+   COLOUR and TYPE: ألوان مطبوعات المكتب — كحلي، أزرق، رمادي، أبيض — IBM Plex Sans Arabic
+   LAYOUT: شريط أخضر بالعنوان والوضع، ثم مدخلات + بلوك النتيجة، ثم الشرائح والتفاصيل */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#0a1424);--ink:light-dark(#222,#e8eef6);--mut:light-dark(#5F6B7A,#9fb0c6);--em:#1E6BB8;--navy:#1F3A68;--pink:light-dark(#e4eef9,#14233d);--card:light-dark(#f6f8fb,#0f1c30);--line:light-dark(#dde3ea,#263a57);--tax:#c8553d;--si:light-dark(#1F3A68,#9cb9e6);--mt:#8a8a8a;--ot:#e8a317}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans Arabic",system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header.band{background:var(--navy);color:#fff;padding-bottom:0}
+.brand{display:flex;align-items:center;gap:12px}.brand img{width:84px;height:auto;border-radius:12px;background:#fff;padding:8px;flex:none}
+.firm b{font-size:17px}.firm .en{font-size:13px;opacity:.85;direction:ltr;display:inline-block}
+.firm{font-size:14px;opacity:.9;margin:0}
+h1{font-size:clamp(30px,4.6vw,48px);line-height:1.1;margin:6px 0 18px;text-wrap:balance}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:inherit;font-weight:700;font-size:16px;min-height:48px;padding:10px 20px;border:0;border-radius:12px 12px 0 0;background:rgba(255,255,255,.18);color:#fff;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--bg);color:var(--ink)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.box{border:2px solid var(--ink);border-radius:14px;padding:20px}
+.f{display:grid;gap:4px;margin-bottom:14px}
+.f label{font-weight:500;font-size:15px}
+.f small{color:var(--mut);font-size:13px}
+input{font:inherit;font-size:17px;width:100%;min-height:46px;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);direction:ltr;text-align:right}
+input[type=text].ar{direction:rtl}
+input:focus,button:focus-visible,summary:focus-visible{outline:3px solid var(--em);outline-offset:2px}
+.res{background:var(--pink);border-color:var(--pink);color:var(--ink)}
+.res .lbl{font-weight:500;margin:0}
+.big{font-family:"Schibsted Grotesk","IBM Plex Sans Arabic",sans-serif;font-weight:800;font-size:clamp(40px,7vw,68px);line-height:1.05;margin:4px 0 2px;direction:ltr;text-align:right;white-space:nowrap}
+.big span{font-size:.38em;font-family:"IBM Plex Sans Arabic";font-weight:500}
+.note{font-size:14px;color:var(--mut);margin:4px 0 0}
+.warn{background:var(--bg);border-radius:10px;padding:8px 12px;font-size:14px;margin-top:10px}
+.bar{display:flex;height:34px;border-radius:8px;overflow:hidden;margin:18px 0 8px;background:var(--bg)}
+.bar i{display:block;height:100%;transition:width .35s}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}
+.leg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin:0;padding:0;list-style:none}
+.leg b{display:inline-block;width:11px;height:11px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td,th{padding:8px 4px;border-bottom:1px solid var(--line);text-align:right}
+th{font-weight:500;color:var(--mut);font-size:13px}
+td.n,th.n{text-align:left;direction:ltr;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;border-bottom:2px solid currentColor}
+.res td{border-color:rgba(0,0,0,.12)}
+h2{font-size:clamp(22px,2.6vw,28px);line-height:1.2;margin:0 0 12px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:24px}
+details{border:2px solid var(--line);border-radius:14px;padding:4px 18px;margin-top:20px}
+summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 14px}
+.btn{font:inherit;font-weight:700;min-height:46px;padding:8px 18px;border-radius:10px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink)}
+textarea{width:100%;min-height:200px;font:14px/1.6 "IBM Plex Sans Arabic";padding:10px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)}
+footer{background:var(--navy);color:#e8eef6}
+footer a{color:#a9cbf2}
+.ltr{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+[hidden]{display:none!important}
+.bear{border:1.5px dashed var(--line);border-radius:12px;padding:10px 14px 4px;margin:0 0 14px}
+.bear legend{font-weight:700;padding:0 6px}
+.ck{display:flex;gap:10px;align-items:flex-start;min-height:40px;margin-bottom:6px;cursor:pointer}
+.ck input{width:22px;height:22px;min-height:0;flex:none;margin-top:3px;accent-color:var(--em)}
+</style>
+</head>
+<body>
+<header class="band"><div class="wrap">
+  <div class="brand"><img src="logo.png" alt="شعار المكتب"><p class="firm"><b>المستشارون للاستشارات المالية والضريبية</b><br><span class="en">AL MUSTASHAROUN for Financial &amp; Tax Consultation</span><br>محاسبون قانونيون ومستشارون</p></div>
+  <h1>حاسبة المرتبات والضريبة والتأمينات 2026</h1>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-g" aria-selected="true">من الإجمالي إلى الصافي</button>
+    <button role="tab" id="t-n" aria-selected="false">من الصافي إلى الإجمالي</button>
+    <button role="tab" id="t-b" aria-selected="false">شيت الموظفين (Excel)</button>
+  </div>
+</div></header>
+
+<main class="band"><div class="wrap">
+<div class="grid" id="sg">
+  <section class="box" aria-label="المدخلات">
+    <div id="in-g">
+      <div class="f"><label for="basic">الأجر الأساسي الشهري</label><input id="basic" type="number" inputmode="decimal" min="0" step="any"></div>
+      <div class="f"><label for="allow">البدلات والحوافز والمتغير (شهري)</label><input id="allow" type="number" inputmode="decimal" min="0" step="any"><small>كل ما يخضع للضريبة من مبالغ نقدية أو مزايا</small></div>
+      <fieldset class="bear"><legend>مين يتحمّل؟</legend>
+        <label class="ck"><input type="checkbox" id="bSI"><span>الجهة تتحمل حصة الموظف في التأمينات</span></label>
+        <label class="ck"><input type="checkbox" id="bTax"><span>الجهة تتحمل الضريبة وصندوق الشهداء</span></label>
+        <label class="ck" id="gu-w" hidden><input type="checkbox" id="gUp" checked><span>تعلية المبالغ المتحمَّلة على الوعاء الضريبي<br><small class="note">ما تتحمله الجهة عن الموظف يُعتبر ميزة تخضع للضريبة</small></span></label>
+        <p class="note" id="bear-n" hidden>المبلغ في الخانتين فوق هو المرتب المتفق عليه.</p>
+      </fieldset>
+    </div>
+    <div id="in-n" hidden>
+      <div class="f"><label for="target">صافي المرتب المتفق عليه (شهري)</label><input id="target" type="number" inputmode="decimal" min="0" step="any"><small>نحسب الإجمالي الذي يحقق هذا الصافي بعد التأمينات والضريبة وصندوق الشهداء</small></div>
+    </div>
+    <div class="f"><label for="ins">أجر الاشتراك التأميني</label><input id="ins" type="number" inputmode="decimal" min="0" step="any" placeholder="تلقائي"><small>اتركه فارغًا ليُحسب من الإجمالي في حدود <span id="lim"></span>. اكتب الأجر المؤمن عليه فعلًا إن كان مختلفًا</small></div>
+    <div class="f"><label for="exo">مبالغ أخرى معفاة من الضريبة (شهري)</label><input id="exo" type="number" inputmode="decimal" min="0" step="any"><small>مثل اشتراكات صناديق التأمين الخاصة في حدود القانون</small></div>
+    <div class="f" id="f-od"><label for="od">استقطاعات بعد الضريبة (سلف، جزاءات، اشتراكات)</label><input id="od" type="number" inputmode="decimal" min="0" step="any"></div>
+  </section>
+
+  <section class="box res" aria-live="polite">
+    <p class="lbl" id="r-lbl">صافي المرتب الشهري</p>
+    <p class="big" id="r-big">0</p>
+    <p class="note" id="r-sub"></p>
+    <div class="warn" id="r-warn" hidden></div>
+    <div class="bar" id="bar"></div>
+    <ul class="leg">
+      <li><b style="background:var(--em)"></b>الصافي</li><li><b style="background:var(--si)"></b>التأمينات</li><li><b style="background:var(--tax)"></b>الضريبة</li><li><b style="background:var(--mt)"></b>صندوق الشهداء</li><li><b style="background:var(--ot)"></b>استقطاعات أخرى</li>
+    </ul>
+    <table style="margin-top:14px"><tbody id="brk"></tbody></table>
+  </section>
+</div>
+
+<div class="cols" id="sc" style="margin-top:32px">
+  <section>
+    <h2>حساب الضريبة السنوي بالشرائح</h2>
+    <table><thead><tr><th>الشريحة</th><th class="n">السعر</th><th class="n">المبلغ</th><th class="n">الضريبة</th></tr></thead><tbody id="slabs"></tbody></table>
+    <p class="note" id="slab-note"></p>
+  </section>
+  <section>
+    <h2>تكلفة صاحب العمل</h2>
+    <table><tbody id="emp"></tbody></table>
+    <p class="note">حصة صاحب العمل في التأمينات تُحسب على أجر الاشتراك ولا تُخصم من الموظف.</p>
+  </section>
+</div>
+
+<section id="batch" hidden>
+  <h2>حساب مرتبات كل الموظفين من شيت Excel</h2>
+  <ol class="note" style="padding-inline-start:20px;margin-top:0">
+    <li>نزّل النموذج واملا بيانات الموظفين، صف لكل موظف.</li>
+    <li>لو الموظف متفق معاه على صافي، اكتبه في عمود "الصافي المتفق عليه" وسيب الأساسي فاضي، فيتحسب عكسي.</li>
+    <li>في عمودي "الجهة تتحمل" اكتب: نعم أو لا.</li>
+    <li>ارفع الشيت، وبعد ما تراجع النتيجة نزّلها Excel.</li>
+  </ol>
+  <p class="note">الملف بيتقري ويتحسب على جهازك بس، ومش بيترفع لأي مكان. التعلية وإعدادات السنة بتتطبق زي الحاسبة الفردية بالظبط.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin:14px 0">
+    <button class="btn ghost" id="tpl">تنزيل النموذج</button>
+    <label class="btn" for="file" style="display:inline-flex;align-items:center">رفع شيت الموظفين</label>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+  <p class="note" id="bmsg"></p>
+  <div class="scroll"><table id="btab" style="min-width:1100px;font-size:14px"></table></div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center">
+    <button class="btn" id="exp">تنزيل النتيجة Excel</button>
+    <button class="btn ghost" id="cpy">نسخ الجدول</button>
+    <span class="note" id="bcp"></span>
+  </div>
+</section>
+
+<details id="sd">
+  <summary>مفردات المرتب للنسخ (اختياري)</summary>
+  <p class="note">البيانات دي بتظهر في النص المنسوخ فقط، ولا تُرسل أو تُحفظ في أي مكان.</p>
+  <div class="row2">
+    <div class="f"><label for="ename">اسم الموظف</label><input id="ename" type="text" class="ar"></div>
+    <div class="f"><label for="ejob">الوظيفة</label><input id="ejob" type="text" class="ar"></div>
+    <div class="f"><label for="emonth">الشهر</label><input id="emonth" type="text" class="ar" placeholder="مثال: نوفمبر 2026"></div>
+  </div>
+  <p><button class="btn" id="copy">نسخ مفردات المرتب</button> <span id="copied" class="note"></span></p>
+  <textarea id="slip" readonly hidden aria-label="مفردات المرتب"></textarea>
+</details>
+
+<details>
+  <summary>إعدادات السنة (عدّلها عند تغيّر القوانين)</summary>
+  <div class="row2">
+    <div class="f"><label for="s-ex">الإعفاء الشخصي السنوي</label><input id="s-ex" type="number" step="any"></div>
+    <div class="f"><label for="s-min">الحد الأدنى لأجر الاشتراك</label><input id="s-min" type="number" step="any"></div>
+    <div class="f"><label for="s-max">الحد الأقصى لأجر الاشتراك</label><input id="s-max" type="number" step="any"></div>
+    <div class="f"><label for="s-emp">حصة الموظف في التأمينات %</label><input id="s-emp" type="number" step="any"></div>
+    <div class="f"><label for="s-er">حصة صاحب العمل %</label><input id="s-er" type="number" step="any"></div>
+    <div class="f"><label for="s-mt">صندوق الشهداء %</label><input id="s-mt" type="number" step="any"></div>
+  </div>
+  <p><button class="btn ghost" id="reset">استرجاع القيم الافتراضية</button></p>
+</details>
+
+<details>
+  <summary>طريقة الحساب</summary>
+  <ul>
+    <li>التأمينات: حصة الموظف 11% وحصة صاحب العمل 18.75% من أجر الاشتراك، في حدود 2,700 و16,700 جنيه شهريًا من يناير 2026 (قانون 148 لسنة 2019).</li>
+    <li>الوعاء الشهري = الإجمالي − تأمينات الموظف − المبالغ المعفاة. يُضرب في 12 ويُخصم الإعفاء الشخصي 20,000 جنيه، ثم يُقرّب لأقرب 10 جنيهات أقل.</li>
+    <li>الشرائح: حتى 40,000 معفاة، ثم 10% و15% و20% و22.5% و25% و27.5%.</li>
+    <li>الدخل السنوي فوق 600,000 جنيه تسقط عنه الشرائح الأدنى تدريجيًا (قانون 7 لسنة 2024)، ولذلك قد يقل الصافي فجأة عند تخطي حدود 600 و700 و800 و900 ألف و1.2 مليون.</li>
+    <li>صندوق الشهداء 0.05% من إجمالي الأجر.</li>
+    <li>لو الجهة بتتحمل التأمينات أو الضريبة عن الموظف: المبالغ دي بتتعلّى على المرتب المتفق عليه وتخضع للضريبة كميزة، لحد ما الموظف يستلم المتفق عليه. أجر الاشتراك التأميني بيتحسب على المرتب المتفق عليه. وتقدر تلغي التعلية من الاختيار المخصص لها.</li>
+    <li>الحساب العكسي يجرّب إجماليات مختلفة ويضيّق المدى حتى يصل للإجمالي الذي يحقق الصافي المطلوب بفرق أقل من قرش.</li>
+  </ul>
+</details>
+</div></main>
+
+<footer class="band"><div class="wrap">
+  <p style="margin:0 0 6px;font-weight:700">المستشارون للاستشارات المالية والضريبية</p>
+  <p style="margin:0">قطعة 5106 ش 9 – المقطم – القاهرة</p>
+  <p style="margin:0">تليفون: <span class="ltr">0226673366</span> – <span class="ltr">01006406607</span> | <span class="ltr">syoussef2001@gmail.com</span> | <a href="https://mfc-tax.com">www.mfc-tax.com</a></p>
+  <p class="note" style="color:#b6c4d8">النتائج استرشادية ولا تُغني عن مراجعة الحالة الفعلية لكل موظف.</p>
+</div></footer>
+
+<script src="xlsx.full.min.js"></script>
+<script>
+{
+const $=id=>document.getElementById(id);
+const DEF={exempt:20000,insMin:2700,insMax:16700,empRate:11,erRate:18.75,mart:0.05};
+let S={...DEF};
+const B=[0,40000,55000,70000,200000,400000,1200000,Infinity],R=[0,.1,.15,.2,.225,.25,.275];
+const r2=x=>Math.round(x*100)/100;
+const fm=x=>(Math.round(x*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const f0=x=>x===Infinity?'∞':x.toLocaleString('en-US');
+const num=id=>{const v=parseFloat($(id).value);return isFinite(v)&&v>0?v:0};
+const ids=['basic','allow','target','ins','exo','od','ename','ejob','emonth'];
+const sMap={'s-ex':'exempt','s-min':'insMin','s-max':'insMax','s-emp':'empRate','s-er':'erRate','s-mt':'mart'};
+let mode='g';
+
+function annualTax(T){
+  T=Math.floor(T/10)*10;
+  if(T<=0)return{tax:0,rows:[],T:0,k:0};
+  let k=0;
+  if(T>1200000)k=5;else if(T>900000)k=4;else if(T>800000)k=3;else if(T>700000)k=2;else if(T>600000)k=1;
+  const rows=[];let tax=0;
+  if(k>0){const cap=B[k+1],a=Math.min(T,cap);rows.push({lo:0,hi:cap,r:R[k],a,t:a*R[k]});tax+=a*R[k]}
+  for(let i=k>0?k+1:0;i<R.length;i++){const lo=B[i],hi=B[i+1];if(T<=lo)break;const a=Math.min(T,hi)-lo;rows.push({lo,hi,r:R[i],a,t:a*R[i]});tax+=a*R[i]}
+  return{tax,rows,T,k};
+}
+function calc(g,o){
+  if(g<=0)return{g:0,ins:0,si:0,er:0,taxable:0,at:annualTax(0),tax:0,mart:0,od:0,net:0};
+  const ins=o.ins>0?o.ins:Math.min(Math.max(g,S.insMin),S.insMax);
+  const si=r2(ins*S.empRate/100),er=r2(ins*S.erRate/100);
+  const taxable=Math.max(0,g-si-o.exo);
+  const at=annualTax(taxable*12-S.exempt);
+  const tax=r2(at.tax/12),mart=r2(g*S.mart/100);
+  const net=r2(g-si-tax-mart-o.od);
+  return{g,ins,si,er,taxable,at,tax,mart,od:o.od,net};
+}
+function solve(target,o){
+  const oo={...o,od:0};let lo=0,hi=Math.max(target*3,target+200000);
+  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(calc(m,oo).net<target)lo=m;else hi=m}
+  let g=Math.ceil(hi*100)/100;
+  while(calc(g,oo).net<target)g=r2(g+.01);
+  return calc(g,oo);
+}
+function computeG(A,o,bSI,bTax,gUp){
+  let c,borne=0,warn='';
+  if(!(bSI||bTax))c=calc(A,o);
+  else{
+    const insA=o.ins>0?o.ins:Math.min(Math.max(A,S.insMin),S.insMax),oo={...o,ins:insA,od:0};
+    if(gUp){
+      const siA=r2(insA*S.empRate/100);
+      if(bSI&&!bTax)c=calc(r2(A+siA),oo);
+      else{const t=bSI?A:A-siA;c=solve(t,oo);if(A>0&&c.net-t>0.5)warn='المبلغ يقع عند قفزة في الشرائح، فالصافي أعلى من المتفق عليه بفرق بسيط.'}
+      c.od=o.od;c.net=r2(c.net-o.od);
+    }else{c=calc(A,o);borne=r2((bSI?c.si:0)+(bTax?c.tax+c.mart:0));c.net=r2(c.net+borne)}
+  }
+  return{c,borne,warn};
+}
+function save(){try{const d={mode,S,bSI:$('bSI').checked,bTax:$('bTax').checked,gUp:$('gUp').checked};ids.forEach(i=>d[i]=$(i).value);localStorage.setItem('mfc-salary',JSON.stringify(d))}catch(e){}}
+function load(){
+  let d=null;try{d=JSON.parse(localStorage.getItem('mfc-salary'))}catch(e){}
+  if(!d)d={basic:'12000',allow:'6000',target:'15000'};
+  ids.forEach(i=>{if(d[i]!=null)$(i).value=d[i]});
+  if(d.S)S={...DEF,...d.S};
+  if(d.mode)mode=d.mode;
+  ['bSI','bTax','gUp'].forEach(i=>{if(typeof d[i]==='boolean')$(i).checked=d[i]});
+}
+function render(){
+  $('t-g').setAttribute('aria-selected',mode==='g');$('t-n').setAttribute('aria-selected',mode==='n');
+  $('t-b').setAttribute('aria-selected',mode==='b');
+  ['sg','sc','sd'].forEach(i=>$(i).hidden=mode==='b');$('batch').hidden=mode!=='b';
+  if(mode==='b'){renderBatch();save();return}
+  $('in-g').hidden=mode!=='g';$('in-n').hidden=mode!=='n';$('f-od').hidden=mode!=='g';
+  $('lim').textContent='من '+f0(S.insMin)+' إلى '+f0(S.insMax);
+  const o={ins:num('ins'),exo:num('exo'),od:mode==='g'?num('od'):0};
+  let c,warn='';
+  const bSI=mode==='g'&&$('bSI').checked,bTax=mode==='g'&&$('bTax').checked,bear=bSI||bTax,gUp=$('gUp').checked;
+  $('gu-w').hidden=!bear;$('bear-n').hidden=!bear;
+  let A=0,borne=0;
+  if(mode==='g'){
+    A=num('basic')+num('allow');
+    ({c,borne,warn}=computeG(A,o,bSI,bTax,gUp));
+    $('r-lbl').textContent='صافي المرتب الشهري';
+    $('r-big').innerHTML=fm(c.net)+' <span>جنيه</span>';
+    $('r-sub').textContent=bear?'الجهة تتحمل '+[bSI?'التأمينات':'',bTax?'الضريبة':''].filter(Boolean).join(' و')+' — تكلفتها الشهرية '+fm(c.g+borne+c.er)+' جنيه':'من إجمالي '+fm(c.g)+' جنيه';
+  }else{
+    const t=num('target');c=solve(t,o);
+    $('r-lbl').textContent='الإجمالي المطلوب شهريًا';
+    $('r-big').innerHTML=fm(c.g)+' <span>جنيه</span>';
+    $('r-sub').textContent='ليحصل الموظف على صافي '+fm(c.net)+' جنيه';
+    if(t>0&&c.net-t>0.5)warn='الصافي المطلوب يقع عند قفزة في الشرائح (سقوط الشرائح الأدنى)، فلا يوجد إجمالي يحققه بالضبط. المعروض هو أقل إجمالي يحقق صافيًا لا يقل عن المطلوب.';
+  }
+  const tg=bTax?' — تتحملها الجهة':'',sg=bSI?' — تتحملها الجهة':'';
+  $('r-warn').hidden=!warn;$('r-warn').textContent=warn;
+  const parts=[[c.net,'var(--em)'],[c.si,'var(--si)'],[c.tax,'var(--tax)'],[c.mart,'var(--mt)'],[c.od,'var(--ot)']];
+  const den=parts.reduce((x,[v])=>x+Math.max(0,v),0);
+  $('bar').innerHTML=den>0?parts.map(([v,col])=>`<i style="width:${Math.max(0,v/den*100)}%;background:${col}"></i>`).join(''):'';
+  const eff=c.g>0?(c.tax/c.g*100).toFixed(1):'0.0';
+  const rows=[];
+  if(bear&&gUp)rows.push(['المرتب المتفق عليه',A,1],['تعلية تتحملها الجهة',r2(c.g-A),1]);
+  rows.push([bear&&gUp?'الإجمالي بعد التعلية':'إجمالي المرتب',c.g],['أجر الاشتراك التأميني',c.ins,1],['تأمينات الموظف ('+S.empRate+'%)'+sg,-c.si],['الوعاء الخاضع الشهري',c.taxable,1],['ضريبة كسب العمل (فعلي '+eff+'%)'+tg,-c.tax],['صندوق الشهداء ('+S.mart+'%)'+tg,-c.mart]);
+  if(mode==='g')rows.push(['استقطاعات أخرى',-c.od]);
+  if(borne)rows.push(['يتحملها صاحب العمل عن الموظف',borne]);
+  $('brk').innerHTML=rows.map(([l,v,info])=>`<tr${info?' style="color:var(--mut)"':''}><td>${l}</td><td class="n">${v<0?'('+fm(-v)+')':fm(Math.abs(v))}</td></tr>`).join('')+`<tr class="tot"><td>الصافي للموظف</td><td class="n">${fm(c.net)}</td></tr>`;
+  const at=c.at;
+  $('slabs').innerHTML=at.rows.length?at.rows.map(r=>`<tr><td><span class="ltr">${f0(r.lo)} – ${f0(r.hi)}</span></td><td class="n">${(r.r*100).toFixed(r.r*1000%10?1:0)}%</td><td class="n">${fm(r.a)}</td><td class="n">${fm(r.t)}</td></tr>`).join('')+`<tr class="tot"><td>الضريبة السنوية</td><td></td><td class="n">${fm(at.T)}</td><td class="n">${fm(at.tax)}</td></tr>`:'<tr><td colspan="4">لا توجد ضريبة: الدخل السنوي الخاضع في حدود الإعفاء.</td></tr>';
+  $('slab-note').textContent='الدخل السنوي الخاضع = (الوعاء الشهري × 12) − الإعفاء الشخصي '+f0(S.exempt)+(at.k?'. هذا الدخل تخطى 600,000 جنيه، فسقطت عنه الشرائح الأدنى.':'.');
+  const cost=c.g+borne+c.er;
+  $('emp').innerHTML=`<tr><td>${bear&&gUp?'الإجمالي بعد التعلية':'إجمالي المرتب'}</td><td class="n">${fm(c.g)}</td></tr>`+(borne?`<tr><td>مبالغ يتحملها عن الموظف</td><td class="n">${fm(borne)}</td></tr>`:'')+`<tr><td>حصة صاحب العمل (${S.erRate}%)</td><td class="n">${fm(c.er)}</td></tr><tr class="tot"><td>التكلفة الشهرية</td><td class="n">${fm(cost)}</td></tr><tr><td>التكلفة السنوية</td><td class="n">${fm(cost*12)}</td></tr>`;
+  window._b={bSI,bTax,borne,A,gUp};
+  window._c=c;$('slip').hidden=true;$('copied').textContent='';
+  save();
+}
+function slipText(){
+  const c=window._c,L=[];
+  L.push('مفردات المرتب'+($('emonth').value?' — '+$('emonth').value:''));
+  if($('ename').value)L.push('الموظف: '+$('ename').value);
+  if($('ejob').value)L.push('الوظيفة: '+$('ejob').value);
+  const b=window._b||{},bs=b.bSI?' (تتحملها الجهة)':'',bt=b.bTax?' (تتحملها الجهة)':'';
+  if((b.bSI||b.bTax)&&b.gUp)L.push('','المرتب المتفق عليه: '+fm(b.A),'الإجمالي بعد التعلية: '+fm(c.g));else L.push('','إجمالي المرتب: '+fm(c.g));
+  L.push('تأمينات اجتماعية: '+fm(c.si)+bs,'ضريبة كسب العمل: '+fm(c.tax)+bt,'صندوق الشهداء: '+fm(c.mart)+bt);
+  if(b.borne)L.push('يتحملها صاحب العمل: '+fm(b.borne));
+  if(c.od)L.push('استقطاعات أخرى: '+fm(c.od));
+  L.push('الصافي: '+fm(c.net),'','أُعدّت بحاسبة المستشارون للاستشارات المالية والضريبية — Mfc-tax.com');
+  return L.join('\n');
+}
+
+const HD=['اسم الموظف','الوظيفة','الأجر الأساسي','البدلات والمتغير','الصافي المتفق عليه','أجر الاشتراك التأميني','مبالغ معفاة','استقطاعات أخرى','الجهة تتحمل التأمينات','الجهة تتحمل الضريبة'];
+const OUT=['م','اسم الموظف','الوظيفة','المرتب المتفق عليه','الإجمالي الخاضع','أجر الاشتراك','تأمينات الموظف','الوعاء الشهري','ضريبة كسب العمل','صندوق الشهداء','استقطاعات أخرى','تتحملها الجهة','الصافي','حصة صاحب العمل','التكلفة الإجمالية'];
+let emp=[['أحمد محمد علي','محاسب',12000,6000,'',''  ,'','','لا','لا'],['منى حسن إبراهيم','مدير مبيعات','','',25000,'','','','',''],['محمود سعيد','سائق',7000,1500,'','','',500,'نعم','نعم']].map(r=>Object.fromEntries(HD.map((h,i)=>[h,r[i]])));
+let sample=true,res=[];
+const nv=v=>{const x=parseFloat(String(v??'').replace(/[,،\s]/g,'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)));return isFinite(x)&&x>0?x:0};
+const yes=v=>/^(نعم|ايوه|أيوه|yes|y|1|x|✓|true)$/i.test(String(v??'').trim());
+function rowCalc(r){
+  const o={ins:nv(r['أجر الاشتراك التأميني']),exo:nv(r['مبالغ معفاة']),od:nv(r['استقطاعات أخرى'])};
+  const t=nv(r['الصافي المتفق عليه']);let A,c,borne=0,paid=0;
+  if(t>0){c=solve(t,{...o,od:0});c.od=o.od;c.net=r2(c.net-o.od);A=t}
+  else{A=nv(r['الأجر الأساسي'])+nv(r['البدلات والمتغير']);const bS=yes(r['الجهة تتحمل التأمينات']),bT=yes(r['الجهة تتحمل الضريبة']);
+    ({c,borne}=computeG(A,o,bS,bT,$('gUp').checked));if(bS||bT)paid=borne||r2(c.g-A)}
+  if(t>0)paid=r2(c.g-t);
+  const cost=r2(c.g+borne+c.er);
+  return[String(r['اسم الموظف']??''),String(r['الوظيفة']??''),A,c.g,c.ins,c.si,c.taxable,c.tax,c.mart,c.od,paid,c.net,c.er,cost];
+}
+const esc=v=>String(v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+function renderBatch(){
+  res=emp.filter(r=>String(r['اسم الموظف']??'').trim()||nv(r['الأجر الأساسي'])||nv(r['الصافي المتفق عليه'])).map(rowCalc);
+  const tot=OUT.slice(3).map((_,j)=>r2(res.reduce((a,r)=>a+r[j+2],0)));
+  $('btab').innerHTML='<thead><tr>'+OUT.map((h,i)=>`<th${i>2?' class="n"':''}>${h}</th>`).join('')+'</tr></thead><tbody>'+
+    res.map((r,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td>'+r.slice(2).map(v=>`<td class="n">${fm(v)}</td>`).join('')+'</tr>').join('')+
+    '<tr class="tot"><td></td><td>الإجمالي ('+res.length+' موظف)</td><td></td>'+tot.map(v=>`<td class="n">${fm(v)}</td>`).join('')+'</tr></tbody>';
+  $('bmsg').textContent=sample?'المعروض بيانات توضيحية لـ 3 موظفين. ارفع الشيت بتاعك لحساب موظفينك.':'تم حساب '+res.length+' موظف من الشيت المرفوع.';
+  $('bcp').textContent='';
+}
+function dl(wb,name){try{XLSX.writeFile(wb,name);$('bcp').textContent='تم التنزيل'}catch(e){$('bcp').textContent='التنزيل غير متاح هنا، استخدم "نسخ الجدول" والصقه في Excel'}}
+function sheet(aoa,w){const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=aoa[0].map((_,i)=>({wch:w(i)}));return ws}
+$('tpl').addEventListener('click',()=>{
+  const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};
+  const ex=[['أحمد محمد علي','محاسب',12000,6000,'','','','','لا','لا'],['منى حسن إبراهيم','مدير مبيعات','','',25000,'','','','',''],['محمود سعيد','سائق',7000,1500,'','','',500,'نعم','نعم']];
+  XLSX.utils.book_append_sheet(wb,sheet([HD,...ex],i=>i<2?24:18),'الموظفين');
+  XLSX.utils.book_append_sheet(wb,sheet([['تعليمات'],['امسح الأمثلة واكتب موظفينك، صف لكل موظف، ولا تغيّر عناوين الأعمدة.'],['الأجر الأساسي + البدلات = المرتب الشهري. أو اكتب "الصافي المتفق عليه" فقط ليُحسب الإجمالي عكسيًا.'],['أجر الاشتراك التأميني: اختياري، لو فاضي يتحسب من المرتب في حدود الحد الأدنى والأقصى.'],['الجهة تتحمل التأمينات / الضريبة: نعم أو لا.']],()=>90),'تعليمات');
+  dl(wb,'نموذج_شيت_المرتبات.xlsx');
+});
+$('file').addEventListener('change',async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const wb=XLSX.read(await f.arrayBuffer());const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:''}).map(r=>{const o={};for(const k in r)o[String(k).trim()]=r[k];return o});
+    const miss=['اسم الموظف'].filter(h=>!rows.length||!(h in rows[0]));
+    if(miss.length){$('bmsg').textContent='الشيت لازم يكون بنفس عناوين النموذج. نزّل النموذج واستخدمه.';return}
+    emp=rows;sample=false;renderBatch();
+  }catch(err){$('bmsg').textContent='تعذّر قراءة الملف. تأكد إنه Excel أو CSV.'}
+  e.target.value='';
+});
+$('exp').addEventListener('click',()=>{
+  const tot=OUT.slice(3).map((_,j)=>r2(res.reduce((a,r)=>a+r[j+2],0)));
+  const aoa=[OUT,...res.map((r,i)=>[i+1,...r]),['','الإجمالي','',...tot]];
+  const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};
+  XLSX.utils.book_append_sheet(wb,sheet(aoa,i=>i===1?26:i===2?16:14),'المرتبات');
+  dl(wb,'نتيجة_حساب_المرتبات.xlsx');
+});
+$('cpy').addEventListener('click',async()=>{
+  const t=[OUT,...res.map((r,i)=>[i+1,r[0],r[1],...r.slice(2).map(v=>v.toFixed(2))])].map(r=>r.join('\t')).join('\n');
+  try{await navigator.clipboard.writeText(t);$('bcp').textContent='تم النسخ، الصقه في Excel'}catch(e){$('bcp').textContent='النسخ غير متاح في هذا المتصفح'}
+});
+load();
+Object.entries(sMap).forEach(([id,k])=>{$(id).value=S[k];$(id).addEventListener('input',()=>{const v=parseFloat($(id).value);if(isFinite(v)&&v>=0){S[k]=v;render()}})});
+ids.forEach(i=>$(i).addEventListener('input',render));
+['bSI','bTax','gUp'].forEach(i=>$(i).addEventListener('change',render));
+$('t-g').addEventListener('click',()=>{mode='g';render()});
+$('t-n').addEventListener('click',()=>{mode='n';render()});
+$('t-b').addEventListener('click',()=>{mode='b';render()});
+$('reset').addEventListener('click',()=>{S={...DEF};Object.entries(sMap).forEach(([id,k])=>$(id).value=S[k]);render()});
+$('copy').addEventListener('click',async()=>{const t=slipText();try{await navigator.clipboard.writeText(t);$('copied').textContent='تم النسخ'}catch(e){$('slip').value=t;$('slip').hidden=false;$('slip').select();$('copied').textContent='انسخ النص من المربع'}});
+render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
