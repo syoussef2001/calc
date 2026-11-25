@@ -103,7 +103,8 @@ footer a{color:#a9cbf2}
     <div id="in-n" hidden>
       <div class="f"><label for="target">صافي المرتب المتفق عليه (شهري)</label><input id="target" type="number" inputmode="decimal" min="0" step="any"><small>نحسب الإجمالي الذي يحقق هذا الصافي بعد التأمينات والضريبة وصندوق الشهداء</small></div>
     </div>
-    <div class="f"><label for="ins">أجر الاشتراك التأميني</label><input id="ins" type="number" inputmode="decimal" min="0" step="any" placeholder="تلقائي"><small>اتركه فارغًا ليُحسب من الإجمالي في حدود <span id="lim"></span>. اكتب الأجر المؤمن عليه فعلًا إن كان مختلفًا</small></div>
+    <div class="f"><label for="ins">أجر الاشتراك التأميني</label><input id="ins" type="number" inputmode="decimal" min="0" step="any" placeholder="تلقائي"><small>اتركه فارغًا ليُحسب من الإجمالي في حدود <span id="lim"></span>. اكتب الأجر المؤمن عليه فعلًا إن كان مختلفًا</small>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><button type="button" class="btn ghost" id="ins-min" style="min-height:40px;padding:6px 14px">التأمين بالحد الأدنى</button><button type="button" class="btn ghost" id="ins-auto" style="min-height:40px;padding:6px 14px">تلقائي على الإجمالي</button></div></div>
     <div class="f"><label for="exo">مبالغ أخرى معفاة من الضريبة (شهري)</label><input id="exo" type="number" inputmode="decimal" min="0" step="any"><small>مثل اشتراكات صناديق التأمين الخاصة في حدود القانون</small></div>
     <div class="f" id="f-od"><label for="od">استقطاعات بعد الضريبة (سلف، جزاءات، اشتراكات)</label><input id="od" type="number" inputmode="decimal" min="0" step="any"></div>
   </section>
@@ -294,6 +295,7 @@ function render(){
     if(t>0&&c.net-t>0.5)warn='الصافي المطلوب يقع عند قفزة في الشرائح (سقوط الشرائح الأدنى)، فلا يوجد إجمالي يحققه بالضبط. المعروض هو أقل إجمالي يحقق صافيًا لا يقل عن المطلوب.';
   }
   const tg=bTax?' — تتحملها الجهة':'',sg=bSI?' — تتحملها الجهة':'';
+  if(c.g>0&&c.ins<Math.min(c.g,S.insMax)-0.5)warn=(warn?warn+' ':'')+'تنبيه: أجر الاشتراك أقل من الأجر الفعلي. قانون التأمينات 148 لسنة 2019 يُلزم بالتأمين على الأجر الفعلي، والفرق ممكن يتطالب بيه مع غرامات عند التفتيش.';
   $('r-warn').hidden=!warn;$('r-warn').textContent=warn;
   const parts=[[c.net,'var(--em)'],[c.si,'var(--si)'],[c.tax,'var(--tax)'],[c.mart,'var(--mt)'],[c.od,'var(--ot)']];
   const den=parts.reduce((x,[v])=>x+Math.max(0,v),0);
@@ -303,6 +305,8 @@ function render(){
   if(bear&&gUp)rows.push(['المرتب المتفق عليه',A,1],['تعلية تتحملها الجهة',r2(c.g-A),1]);
   rows.push([bear&&gUp?'الإجمالي بعد التعلية':'إجمالي المرتب',c.g],['أجر الاشتراك التأميني',c.ins,1],['تأمينات الموظف ('+S.empRate+'%)'+sg,-c.si],['الوعاء الخاضع الشهري',c.taxable,1],['ضريبة كسب العمل (فعلي '+eff+'%)'+tg,-c.tax],['صندوق الشهداء ('+S.mart+'%)'+tg,-c.mart]);
   if(mode==='g')rows.push(['استقطاعات أخرى',-c.od]);
+  const split=c.g>0&&c.ins<c.g-0.5;
+  if(split){const i=rows.findIndex(r=>r[0]==='أجر الاشتراك التأميني');rows.splice(i+1,0,['منه أجر أساسي مؤمن عليه',c.ins,1],['منه بدلات وحوافز ومكافآت',r2(c.g-c.ins),1])}
   if(borne)rows.push(['يتحملها صاحب العمل عن الموظف',borne]);
   $('brk').innerHTML=rows.map(([l,v,info])=>`<tr${info?' style="color:var(--mut)"':''}><td>${l}</td><td class="n">${v<0?'('+fm(-v)+')':fm(Math.abs(v))}</td></tr>`).join('')+`<tr class="tot"><td>الصافي للموظف</td><td class="n">${fm(c.net)}</td></tr>`;
   const at=c.at;
@@ -321,6 +325,7 @@ function slipText(){
   if($('ejob').value)L.push('الوظيفة: '+$('ejob').value);
   const b=window._b||{},bs=b.bSI?' (تتحملها الجهة)':'',bt=b.bTax?' (تتحملها الجهة)':'';
   if((b.bSI||b.bTax)&&b.gUp)L.push('','المرتب المتفق عليه: '+fm(b.A),'الإجمالي بعد التعلية: '+fm(c.g));else L.push('','إجمالي المرتب: '+fm(c.g));
+  if(c.ins<c.g-0.5)L.push('منه أجر أساسي مؤمن عليه: '+fm(c.ins),'منه بدلات وحوافز ومكافآت: '+fm(r2(c.g-c.ins)));
   L.push('تأمينات اجتماعية: '+fm(c.si)+bs,'ضريبة كسب العمل: '+fm(c.tax)+bt,'صندوق الشهداء: '+fm(c.mart)+bt);
   if(b.borne)L.push('يتحملها صاحب العمل: '+fm(b.borne));
   if(c.od)L.push('استقطاعات أخرى: '+fm(c.od));
@@ -391,6 +396,8 @@ ids.forEach(i=>$(i).addEventListener('input',render));
 $('t-g').addEventListener('click',()=>{mode='g';render()});
 $('t-n').addEventListener('click',()=>{mode='n';render()});
 $('t-b').addEventListener('click',()=>{mode='b';render()});
+$('ins-min').addEventListener('click',()=>{$('ins').value=S.insMin;render()});
+$('ins-auto').addEventListener('click',()=>{$('ins').value='';render()});
 $('reset').addEventListener('click',()=>{S={...DEF};Object.entries(sMap).forEach(([id,k])=>$(id).value=S[k]);render()});
 $('copy').addEventListener('click',async()=>{const t=slipText();try{await navigator.clipboard.writeText(t);$('copied').textContent='تم النسخ'}catch(e){$('slip').value=t;$('slip').hidden=false;$('slip').select();$('copied').textContent='انسخ النص من المربع'}});
 render();
